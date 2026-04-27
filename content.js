@@ -1,12 +1,37 @@
 console.log("Scroll Companion loaded");
 
+// ===== DEFAULT SETTINGS =====
+const DEFAULT_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+const IDLE_THRESHOLD = 10000; // 10s inactivity
+
 // ===== STATE =====
-let timeSpent = 0;
-let lastTick = Date.now();
+let settings = {
+  scrollLimitMs: DEFAULT_LIMIT_MS
+};
+
+let session = {
+  remainingMs: DEFAULT_LIMIT_MS,
+  lastTick: Date.now()
+};
+
 let active = true;
 let lastActivity = Date.now();
+let isBlocked = false;
 
-// ===== TRACK ACTIVE TAB =====
+// ===== STORAGE INIT =====
+function initStorage() {
+  chrome.storage.local.get(["settings"], (res) => {
+    if (res.settings) {
+      settings = { ...settings, ...res.settings };
+    }
+
+    session.remainingMs = settings.scrollLimitMs;
+  });
+}
+
+initStorage();
+
+// ===== ACTIVITY TRACKING =====
 document.addEventListener("visibilitychange", () => {
   active = !document.hidden;
 });
@@ -17,106 +42,109 @@ document.addEventListener("visibilitychange", () => {
   });
 });
 
-// ===== INJECT UI =====
-function injectCharacter() {
-  if (document.getElementById("scroll-companion")) return;
+// ===== UI INJECTION =====
+function injectUI() {
+  if (document.getElementById("sc-root")) return;
 
-  const container = document.createElement("div");
-  container.id = "scroll-companion-container";
+  const root = document.createElement("div");
+  root.id = "sc-root";
 
-  const character = document.createElement("div");
-  character.id = "scroll-companion";
+  // TOP BAR
+  const bar = document.createElement("div");
+  bar.id = "sc-bar";
 
-  const bubble = document.createElement("div");
-  bubble.id = "scroll-bubble";
-  bubble.innerText = "0:00";
+  const fill = document.createElement("div");
+  fill.id = "sc-bar-fill";
 
-  container.appendChild(character);
-  container.appendChild(bubble);
-  document.body.appendChild(container);
+  bar.appendChild(fill);
+
+  // PLANT
+  const plant = document.createElement("img");
+  plant.id = "sc-plant";
+  plant.src = chrome.runtime.getURL("assets/plant1.png");
+
+  root.appendChild(bar);
+  root.appendChild(plant);
+  document.body.appendChild(root);
 }
 
-setTimeout(() => {
-  injectCharacter();
-}, 1000);
+setTimeout(injectUI, 1000);
 
 // ===== TIMER =====
-function updateTime() {
-  console.log("updating...");
+function tick() {
   const now = Date.now();
 
   const onInstagram = window.location.hostname.includes("instagram.com");
-  const isActiveUser = now - lastActivity < 10000; // 10 seconds
+  const isActiveUser = now - lastActivity < IDLE_THRESHOLD;
 
-  if (active && onInstagram && isActiveUser) {
-    timeSpent += now - lastTick;
+  if (active && onInstagram && isActiveUser && !isBlocked) {
+    const delta = now - session.lastTick;
+    session.remainingMs -= delta;
+
+    if (session.remainingMs < 0) session.remainingMs = 0;
   }
 
-  if (!isActiveUser) {
-    bubble.innerText = "Idle...";
-  }
+  session.lastTick = now;
 
-  lastTick = now;
+  updateUI();
 
-  const bubble = document.getElementById("scroll-bubble");
-  if (bubble) {
-    bubble.innerText = formatTime(timeSpent);
-  }
-
-  const character = document.getElementById("scroll-companion");
-  if (character && timeSpent > 300000) {
-    character.style.backgroundColor = "red";
+  if (session.remainingMs === 0 && !isBlocked) {
+    triggerLimit();
   }
 }
 
-setInterval(updateTime, 1000);
+setInterval(tick, 1000);
 
-// ===== RANDOM INTERVENTION =====
-function getRandomInterval(min, max) {
-  return Math.random() * (max - min) + min;
+// ===== UI UPDATE =====
+function updateUI() {
+  const fill = document.getElementById("sc-bar-fill");
+  const plant = document.getElementById("sc-plant");
+
+  if (!fill || !plant) return;
+
+  const ratio = session.remainingMs / settings.scrollLimitMs;
+
+  // BAR SHRINK
+  fill.style.width = `${ratio * 100}%`;
+
+  // PLANT STAGES (quartiles)
+  let stage = 1;
+  if (ratio <= 0.75) stage = 2;
+  if (ratio <= 0.5) stage = 3;
+  if (ratio <= 0.25) stage = 4;
+
+  plant.src = chrome.runtime.getURL(`assets/plant${stage}.png`);
 }
 
-function scheduleIntervention() {
-  const delay = getRandomInterval(180000, 600000); // 3–10 min
-  setTimeout(() => {
-    showPopup();
-    scheduleIntervention();
-  }, delay);
-}
+// ===== LIMIT REACHED =====
+function triggerLimit() {
+  isBlocked = true;
 
-scheduleIntervention();
-
-// ===== FORMAT TIME =====
-function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-// ===== POPUP =====
-function showPopup() {
-  if (document.getElementById("intervention-overlay")) return;
+  if (document.getElementById("sc-overlay")) return;
 
   const overlay = document.createElement("div");
-  overlay.id = "intervention-overlay";
+  overlay.id = "sc-overlay";
 
   overlay.innerHTML = `
-    <div class="modal">
-      <p>You've been scrolling for a while...</p>
-      <button id="continue">Continue</button>
-      <button id="leave">Leave</button>
+    <div class="sc-modal">
+      <h1>Time Limit Reached</h1>
+      <img src="${chrome.runtime.getURL("assets/plant4.png")}" />
+      <p>You’ve been scrolling for a while. Let’s take a break.</p>
+      <button id="sc-next">Next</button>
     </div>
   `;
 
   document.body.appendChild(overlay);
 
-  document.getElementById("continue").onclick = () => {
+  document.getElementById("sc-next").onclick = () => {
+    // Phase 0 stub: reset immediately
     overlay.remove();
+    resetSession();
   };
+}
 
-  document.getElementById("leave").onclick = () => {
-    window.location.href = "https://www.google.com";
-  };
+// ===== RESET POLICY =====
+function resetSession() {
+  session.remainingMs = settings.scrollLimitMs;
+  isBlocked = false;
 }
