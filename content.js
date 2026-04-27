@@ -1,7 +1,7 @@
 console.log("Scroll Companion loaded");
 
 // ===== DEFAULT SETTINGS =====
-const DEFAULT_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_LIMIT_MS = 5 * 1000; // 5 minutes
 const IDLE_THRESHOLD = 10000; // 10s inactivity
 
 // ===== STATE =====

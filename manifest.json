@@ -7,6 +7,9 @@
   "host_permissions": [
     "*://*.instagram.com/*"
   ],
+  "action": {
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": ["*://*.instagram.com/*"],
@@ -16,7 +19,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/*.png"],
+      "resources": ["assets/*.png", "gutenberg_catalog.json"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "title": "Alice's Adventures in Wonderland",
+    "author": "Lewis Carroll",
+    "subjects": ["fantasy", "children"],
+    "text": "Alice was beginning to get very tired of sitting by her sister on the bank..."
+  },
+  {
+    "id": 2,
+    "title": "Frankenstein",
+    "author": "Mary Shelley",
+    "subjects": ["horror", "science fiction"],
+    "text": "You will rejoice to hear that no disaster has accompanied the commencement..."
+  },
+  {
+    "id": 3,
+    "title": "Pride and Prejudice",
+    "author": "Jane Austen",
+    "subjects": ["romance"],
+    "text": "It is a truth universally acknowledged, that a single man in possession..."
+  }
+]

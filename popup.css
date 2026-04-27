@@ -1,0 +1,63 @@
+body {
+  font-family: Inter, sans-serif;
+  padding: 10px;
+  width: 300px;
+}
+
+h1 {
+  font-size: 18px;
+  color: #1b4332;
+}
+
+h2 {
+  font-size: 14px;
+  color: #2d6a4f;
+  margin-top: 10px;
+}
+
+input {
+  width: 100%;
+  margin: 4px 0;
+  padding: 6px;
+}
+
+button {
+  margin-top: 6px;
+  padding: 6px;
+  width: 100%;
+  background: #40916c;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+#results {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.result {
+  border-bottom: 1px solid #ccc;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.result:hover {
+  background: #f1f1f1;
+}
+
+#streak-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.day {
+  width: 100%;
+  height: 20px;
+  background: #eee;
+}
+
+.day.active {
+  background: #95d5b2;
+}

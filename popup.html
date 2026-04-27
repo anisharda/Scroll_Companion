@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Scroll Companion</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <h1>Scroll Companion</h1>
+
+  <!-- GOAL -->
+  <section>
+    <h2>Today's Progress</h2>
+    <p id="progress-text">0 / 20 min</p>
+  </section>
+
+  <!-- STREAK -->
+  <section>
+    <h2>Streak</h2>
+    <div id="streak-grid"></div>
+  </section>
+
+  <!-- SEARCH -->
+  <section>
+    <h2>Find Reading</h2>
+
+    <input id="title" placeholder="Title">
+    <input id="author" placeholder="Author">
+    <input id="subject" placeholder="Subject">
+
+    <button id="search">Search</button>
+
+    <div id="results"></div>
+  </section>
+
+  <!-- ACTIVE -->
+  <section>
+    <h2>Today's Reading</h2>
+    <p id="active-reading">None selected</p>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
