@@ -5,39 +5,29 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <div class="header">
+    <img id="plant-img" src="assets/plant1.png" alt="plant">
+    <h1>Scroll Companion</h1>
+  </div>
 
-  <h1>Scroll Companion</h1>
+  <div id="mode-card">
+    <div id="mode-label">No goal set today</div>
+    <div id="mode-status"></div>
+  </div>
 
-  <!-- GOAL -->
-  <section>
-    <h2>Today's Progress</h2>
-    <p id="progress-text">0 / 20 min</p>
-  </section>
+  <div id="no-goal-hint">Visit Instagram to choose today's goal!</div>
 
-  <!-- STREAK -->
-  <section>
-    <h2>Streak</h2>
-    <div id="streak-grid"></div>
-  </section>
-
-  <!-- SEARCH -->
-  <section>
-    <h2>Find Reading</h2>
-
-    <input id="title" placeholder="Title">
-    <input id="author" placeholder="Author">
-    <input id="subject" placeholder="Subject">
-
-    <button id="search">Search</button>
-
-    <div id="results"></div>
-  </section>
-
-  <!-- ACTIVE -->
-  <section>
-    <h2>Today's Reading</h2>
-    <p id="active-reading">None selected</p>
-  </section>
+  <div class="switch-section">
+    <div class="switch-label">Switch goal:</div>
+    <div class="switch-grid">
+      <button class="switch-btn" data-mode="education">📚 Education</button>
+      <button class="switch-btn" data-mode="health">🏃 Health</button>
+      <button class="switch-btn" data-mode="productivity">⏱ Productivity</button>
+      <button class="switch-btn" data-mode="reduce">📉 Reduce Usage</button>
+      <button class="switch-btn" data-mode="mindfulness">🧘 Mindfulness</button>
+    </div>
+    <div id="switch-status"></div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

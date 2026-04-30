@@ -3,7 +3,7 @@
   "name": "Scroll Companion",
   "version": "1.0",
   "description": "Interrupts doomscrolling with awareness prompts",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": [
     "*://*.instagram.com/*"
   ],

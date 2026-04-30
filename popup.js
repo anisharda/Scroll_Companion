@@ -1,125 +1,93 @@
-const goalMinutesDefault = 20;
-
-// ===== INIT =====
-document.addEventListener("DOMContentLoaded", async () => {
-  initStorage();
-  loadProgress();
-  loadActiveReading();
-
-  document.getElementById("search").onclick = searchCatalog;
-});
-
-// ===== STORAGE INIT =====
-function initStorage() {
-  chrome.storage.local.get(["settings"], (res) => {
-    if (!res.settings) {
-      chrome.storage.local.set({
-        settings: {
-          goalMinutesPerDay: goalMinutesDefault
-        }
-      });
-    }
-  });
-}
-
-// ===== LOAD PROGRESS =====
-function loadProgress() {
-  chrome.storage.local.get(["daily", "settings"], (res) => {
-    const today = new Date().toISOString().split("T")[0];
-
-    const minutes = res.daily?.minutesRead || 0;
-    const goal = res.settings?.goalMinutesPerDay || goalMinutesDefault;
-
-    document.getElementById("progress-text").innerText =
-      `${minutes} / ${goal} min`;
-
-    renderStreak(res.daily?.streak || []);
-  });
-}
-
-// ===== STREAK =====
-function renderStreak(streak) {
-  const grid = document.getElementById("streak-grid");
-  grid.innerHTML = "";
-
-  for (let i = 0; i < 28; i++) {
-    const cell = document.createElement("div");
-    cell.className = "day";
-
-    if (streak.includes(i)) {
-      cell.classList.add("active");
-    }
-
-    grid.appendChild(cell);
-  }
-}
-
-// ===== SEARCH =====
-async function searchCatalog() {
-  const title = document.getElementById("title").value.toLowerCase();
-  const author = document.getElementById("author").value.toLowerCase();
-  const subject = document.getElementById("subject").value.toLowerCase();
-
-  const url = chrome.runtime.getURL("gutenberg_catalog.json");
-  const res = await fetch(url);
-  const catalog = await res.json();
-
-  const results = catalog.filter(work => {
-    return (
-      (!title || work.title.toLowerCase().includes(title)) &&
-      (!author || work.author.toLowerCase().includes(author)) &&
-      (!subject || work.subjects.join(" ").toLowerCase().includes(subject))
-    );
-  });
-
-  renderResults(results);
-}
-
-// ===== RENDER RESULTS =====
-function renderResults(results) {
-  const container = document.getElementById("results");
-  container.innerHTML = "";
-
-  results.slice(0, 10).forEach(work => {
-    const div = document.createElement("div");
-    div.className = "result";
-
-    div.innerText = `${work.title} — ${work.author}`;
-
-    div.onclick = () => selectReading(work);
-
-    container.appendChild(div);
-  });
-}
-
-// ===== SELECT READING =====
-function selectReading(work) {
+document.addEventListener("DOMContentLoaded", () => {
   const today = new Date().toISOString().split("T")[0];
 
-  const activeReading = {
-    id: work.id,
-    title: work.title,
-    author: work.author,
-    text: work.text,
-    activeDateISO: today
-  };
-
-  chrome.storage.local.set({ activeReading }, () => {
-    loadActiveReading();
-  });
-}
-
-// ===== LOAD ACTIVE =====
-function loadActiveReading() {
-  chrome.storage.local.get(["activeReading"], (res) => {
-    const el = document.getElementById("active-reading");
-
-    if (!res.activeReading) {
-      el.innerText = "None selected";
-      return;
+  // Highlight active goal button and wire up switching
+  chrome.storage.local.get(["todayGoal"], (res) => {
+    if (res.todayGoal?.date === today) {
+      const active = document.querySelector(`[data-mode="${res.todayGoal.mode}"]`);
+      if (active) active.classList.add("switch-btn-active");
     }
-
-    el.innerText =
-      `${res.activeReading.title} — ${res.activeReading.author}`;
   });
-}
+
+  document.querySelectorAll(".switch-btn").forEach(btn => {
+    btn.onclick = () => {
+      const mode = btn.dataset.mode;
+      chrome.storage.local.set({ todayGoal: { date: today, mode } }, () => {
+        document.querySelectorAll(".switch-btn").forEach(b => b.classList.remove("switch-btn-active"));
+        btn.classList.add("switch-btn-active");
+
+        // Reload the Instagram tab so the new mode initialises
+        chrome.tabs.query({ url: "*://*.instagram.com/*" }, (tabs) => {
+          const status = document.getElementById("switch-status");
+          if (tabs.length > 0) {
+            chrome.tabs.reload(tabs[0].id);
+            status.textContent = "✓ Reloading Instagram…";
+          } else {
+            status.textContent = "✓ Saved — open Instagram to start";
+          }
+        });
+      });
+    };
+  });
+
+  chrome.storage.local.get(
+    ["todayGoal", "pomodoroState", "reduceState", "healthState"],
+    (res) => {
+      const goal = res.todayGoal;
+      const modeLabel = document.getElementById("mode-label");
+      const modeStatus = document.getElementById("mode-status");
+      const hint = document.getElementById("no-goal-hint");
+      const plantImg = document.getElementById("plant-img");
+      const card = document.getElementById("mode-card");
+
+      if (!goal || goal.date !== today) {
+        hint.style.display = "block";
+        card.style.display = "none";
+        return;
+      }
+
+      hint.style.display = "none";
+      card.style.display = "block";
+
+      const names = {
+        education:    "📚 Education",
+        health:       "🏃 Health",
+        productivity: "⏱ Productivity",
+        reduce:       "📉 Reduce Usage",
+        mindfulness:  "🧘 Mindfulness",
+      };
+
+      modeLabel.textContent = `Today: ${names[goal.mode] || goal.mode}`;
+
+      if (goal.mode === "productivity" && res.pomodoroState) {
+        const s = res.pomodoroState;
+        if (s.phase === "earning") {
+          const extra = s.offStart ? Date.now() - s.offStart : 0;
+          const done = (s.offAccumMs || 0) + extra;
+          const rem = Math.max(0, 50 * 60 * 1000 - done);
+          modeStatus.textContent = `Earning — ${Math.ceil(rem / 60000)} min remaining`;
+          plantImg.src = "assets/plant2.png";
+        } else {
+          const rem = Math.max(0, 25 * 60 * 1000 - (s.onUsedMs || 0));
+          modeStatus.textContent = `Active session — ${Math.ceil(rem / 60000)} min left`;
+          plantImg.src = "assets/plant3.png";
+        }
+      } else if (goal.mode === "health" && res.healthState) {
+        const s = res.healthState;
+        const earned = Math.floor((s.steps || 0) / 10);
+        modeStatus.textContent = `${s.steps || 0} steps · ${earned} min earned`;
+        plantImg.src = earned > 30 ? "assets/plant3.png" : "assets/plant2.png";
+      } else if (goal.mode === "reduce" && res.reduceState) {
+        const usedMin = Math.floor((res.reduceState.usageMs || 0) / 60000);
+        modeStatus.textContent = `${usedMin} min used this cycle`;
+        plantImg.src = usedMin > 15 ? "assets/plant3.png" : "assets/plant1.png";
+      } else if (goal.mode === "mindfulness") {
+        modeStatus.textContent = "Check-ins every 15 min of usage";
+        plantImg.src = "assets/plant2.png";
+      } else if (goal.mode === "education") {
+        modeStatus.textContent = "Learning tips every 15 min";
+        plantImg.src = "assets/plant2.png";
+      }
+    }
+  );
+});
