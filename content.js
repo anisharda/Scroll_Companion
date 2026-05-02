@@ -5,6 +5,7 @@ const PLANT_IMGS = [1, 2, 3, 4].map(n => chrome.runtime.getURL(`assets/plant${n}
 
 let currentMode = null;
 let pageVisible = !document.hidden;
+let mindfulnessPaused = false;
 
 document.addEventListener("visibilitychange", () => {
   pageVisible = !document.hidden;
@@ -92,21 +93,109 @@ function startMode(mode) {
 }
 
 // ===================================================================
-// EDUCATION MODE — tips every 15 min to nudge toward learning
+// EDUCATION MODE — passage/math challenge every 15s (test) / 15min (real)
+// Correct → unlock next full interval. Wrong → retry for full unlock OR
+// skip for a short 3s (test) / 3min (real) grace period.
 // ===================================================================
-const EDU_TIPS = [
-  "Reading just 20 min/day can expose you to over 1.8 million words a year.",
-  "Challenge: before scrolling more, name 3 things you want to learn this week.",
-  "Learning a new word: Sonder — the realization that each passerby has a life as vivid as your own.",
-  "Your brain consolidates memories during rest. Maybe now is a good time to step away?",
-  "Try replacing this scroll session with a 5-minute Wikipedia deep dive on something you're curious about.",
+const EDU_CHALLENGES = [
+  {
+    passage: "Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to produce oxygen and glucose. This occurs in chloroplasts, which contain chlorophyll — a green pigment that absorbs light energy and drives the chemical reactions converting CO₂ and H₂O into glucose and oxygen.",
+    question: "What is the role of chlorophyll in photosynthesis?",
+    options: ["It produces water molecules", "It absorbs light energy to power the reaction", "It releases carbon dioxide", "It breaks down glucose"],
+    correct: 1,
+  },
+  {
+    passage: null,
+    question: "A store sells apples for $1.20 each. You buy 8 apples and pay with a $20 bill. How much change do you receive?",
+    options: ["$9.60", "$10.40", "$11.20", "$8.40"],
+    correct: 1,
+  },
+  {
+    passage: "The Amazon rainforest spans 9 countries and covers 5.5 million square kilometres. Often called the 'lungs of the Earth', it produces roughly 20% of the world's oxygen and is home to an estimated 10% of all species on Earth. Despite its importance, roughly 17% has been cleared through deforestation in the last 50 years.",
+    question: "What fraction of all Earth's species live in the Amazon?",
+    options: ["About 1%", "About 5%", "About 10%", "About 25%"],
+    correct: 2,
+  },
+  {
+    passage: null,
+    question: "A rectangle has a perimeter of 36 cm. Its length is twice its width. What is its area?",
+    options: ["72 cm²", "108 cm²", "48 cm²", "96 cm²"],
+    correct: 0,
+  },
+  {
+    passage: "In 1928, Alexander Fleming noticed that a mould (Penicillium) had contaminated a petri dish and was killing the surrounding bacteria. This accidental observation led to the development of penicillin, the world's first antibiotic — a discovery credited with saving an estimated 200 million lives.",
+    question: "How did Fleming discover penicillin?",
+    options: ["Through deliberate experiments on soil bacteria", "By accident, observing mould killing bacteria in a petri dish", "By analysing patient blood samples", "By isolating a chemical from fungal spores"],
+    correct: 1,
+  },
+  {
+    passage: "The human brain contains approximately 86 billion neurons. Each neuron can form thousands of connections called synapses, giving the brain an estimated 100 trillion synaptic connections. The brain consumes about 20% of the body's total energy despite accounting for only 2% of its weight.",
+    question: "Why is the brain considered metabolically expensive?",
+    options: ["It weighs more than other organs", "It uses 20% of the body's energy despite being only 2% of body weight", "It contains more water than other organs", "It produces the most heat in the body"],
+    correct: 1,
+  },
+  {
+    passage: null,
+    question: "Train A travels at 80 km/h and Train B travels at 60 km/h in the same direction. If Train A starts 30 minutes behind Train B, how long does it take Train A to catch up?",
+    options: ["1 hour", "1.5 hours", "2 hours", "45 minutes"],
+    correct: 1,
+  },
+  {
+    passage: "Black holes are regions of spacetime where gravity is so strong that nothing — not even light — can escape. They form when massive stars collapse at the end of their life cycle. The boundary of a black hole is called the event horizon. Beyond it, escape velocity exceeds the speed of light.",
+    question: "What is the event horizon of a black hole?",
+    options: ["The centre of maximum gravity", "The boundary beyond which nothing can escape", "The outer edge of a galaxy", "The point where light bends around the hole"],
+    correct: 1,
+  },
+  {
+    passage: null,
+    question: "If 15% of a number is 45, what is 40% of the same number?",
+    options: ["100", "110", "120", "130"],
+    correct: 2,
+  },
+  {
+    passage: "The water cycle describes the continuous movement of water on, above, and below Earth's surface. Key stages include evaporation (water turns to vapour from oceans and lakes), condensation (vapour cools to form clouds), precipitation (water falls as rain or snow), and collection (water gathers in rivers, lakes, and groundwater).",
+    question: "What happens during condensation in the water cycle?",
+    options: ["Water evaporates from the ocean", "Water vapour cools and forms clouds", "Rain falls from clouds to the ground", "Water collects in rivers and lakes"],
+    correct: 1,
+  },
+  {
+    passage: null,
+    question: "A car travels 240 km on 20 litres of fuel. How many litres are needed to travel 360 km at the same rate?",
+    options: ["25 litres", "28 litres", "30 litres", "32 litres"],
+    correct: 2,
+  },
+  {
+    passage: "DNA (deoxyribonucleic acid) carries the genetic instructions for the development and functioning of all known living organisms. It is structured as a double helix — two strands wound around each other. The sequence of four chemical bases (adenine, thymine, cytosine, guanine) along each strand encodes genetic information.",
+    question: "What encodes genetic information within a DNA strand?",
+    options: ["The length of the strand", "The sequence of chemical bases along the strand", "The number of double helix turns", "The sugar-phosphate backbone"],
+    correct: 1,
+  },
+  {
+    passage: "The Renaissance was a cultural and intellectual movement that began in Italy in the 14th century and spread across Europe by the 17th century. It marked a revival of interest in the art, philosophy, and learning of ancient Greece and Rome. Key figures included Leonardo da Vinci, Michelangelo, and Galileo.",
+    question: "Where did the Renaissance begin?",
+    options: ["France", "England", "Italy", "Greece"],
+    correct: 2,
+  },
+  {
+    passage: null,
+    question: "A shop reduces a $80 jacket by 25%, then reduces it by a further 10%. What is the final price?",
+    options: ["$52", "$54", "$56", "$58"],
+    correct: 1,
+  },
+  {
+    passage: "The ozone layer is a region of Earth's stratosphere that absorbs most of the Sun's ultraviolet radiation. It contains high concentrations of ozone (O₃). In the 1980s, scientists discovered a significant thinning of the ozone layer over Antarctica — the 'ozone hole' — caused largely by chemicals called chlorofluorocarbons (CFCs).",
+    question: "What primarily caused the thinning of the ozone layer?",
+    options: ["Carbon dioxide emissions", "Chlorofluorocarbons (CFCs)", "Methane from livestock", "Nitrogen oxide from vehicles"],
+    correct: 1,
+  },
 ];
 
 function initEducation() {
   let usageMs = 0;
   let lastTick = Date.now();
-  let tipCount = 0;
-  const TIP_MS = 15 * 60 * 1000;
+  const TIP_MS = 15 * 1000;
+  const SHORT_MS = 3 * 1000;
+  let nextCheckAt = TIP_MS;
 
   setPlant(1, `📚 ${mmss(TIP_MS)}`);
 
@@ -116,27 +205,75 @@ function initEducation() {
     usageMs += now - lastTick;
     lastTick = now;
 
-    const timeToNext = TIP_MS - (usageMs % TIP_MS);
-    setPlant(Math.min(4, 1 + Math.floor(usageMs / (5 * 60000))), `📚 ${mmss(timeToNext)}`);
+    const timeToNext = Math.max(0, nextCheckAt - usageMs);
+    setPlant(Math.min(4, 1 + Math.floor(usageMs / (5 * 1000))), `📚 ${mmss(timeToNext)}`);
 
-    if (usageMs >= (tipCount + 1) * TIP_MS) {
-      showEduTip(EDU_TIPS[tipCount % EDU_TIPS.length]);
-      tipCount++;
+    if (usageMs >= nextCheckAt && nextCheckAt !== Infinity) {
+      nextCheckAt = Infinity;
+      showEduChallenge(
+        () => { nextCheckAt = usageMs + TIP_MS; },   // onUnlock — full interval
+        () => { nextCheckAt = usageMs + SHORT_MS; }  // onSkip   — short grace
+      );
     }
   }, 1000);
 }
 
-function showEduTip(tip) {
+function showEduChallenge(onUnlock, onSkip, challengeOverride) {
+  const challenge = challengeOverride || EDU_CHALLENGES[Math.floor(Math.random() * EDU_CHALLENGES.length)];
+
+  const passageHtml = challenge.passage
+    ? `<div class="sc-edu-passage">${challenge.passage}</div>` : "";
+
+  const optionsHtml = challenge.options.map((opt, i) =>
+    `<button class="sc-edu-opt" data-idx="${i}">${opt}</button>`
+  ).join("");
+
   const el = makeOverlay(`
-    <div class="sc-modal">
+    <div class="sc-modal sc-edu-modal">
       <img src="${PLANT_IMGS[1]}" class="sc-plant-hero">
-      <h2>Learning Moment 📚</h2>
-      <p>${tip}</p>
-      <button id="sc-edu-ok">Keep scrolling</button>
+      <h2>📚 Learning Check</h2>
+      ${passageHtml}
+      <p class="sc-edu-question">${challenge.question}</p>
+      <div class="sc-edu-options">${optionsHtml}</div>
     </div>
   `);
   document.body.appendChild(el);
-  el.querySelector("#sc-edu-ok").onclick = () => el.remove();
+
+  el.querySelectorAll(".sc-edu-opt").forEach(btn => {
+    btn.onclick = () => {
+      if (parseInt(btn.dataset.idx) === challenge.correct) {
+        el.querySelector(".sc-modal").innerHTML = `
+          <img src="${PLANT_IMGS[2]}" class="sc-plant-hero">
+          <h2>Correct! 🎉</h2>
+          <p>Great work — you've unlocked your next scroll session.</p>
+          <button id="sc-edu-continue">Keep scrolling</button>
+        `;
+        el.querySelector("#sc-edu-continue").onclick = () => { el.remove(); onUnlock(); };
+      } else {
+        showEduWrongChoice(el, challenge, onUnlock, onSkip);
+      }
+    };
+  });
+}
+
+function showEduWrongChoice(el, challenge, onUnlock, onSkip) {
+  el.querySelector(".sc-modal").innerHTML = `
+    <img src="${PLANT_IMGS[0]}" class="sc-plant-hero">
+    <h2>Not quite! 🤔</h2>
+    <p>What would you like to do?</p>
+    <div class="sc-btn-col">
+      <button id="sc-edu-retry">Try a new question to unlock 15 min</button>
+      <button id="sc-edu-skip" class="sc-btn-secondary">Keep scrolling (next question in 3 min)</button>
+    </div>
+  `;
+  el.querySelector("#sc-edu-retry").onclick = () => {
+    el.remove();
+    // Pick a different challenge so they aren't shown the same question
+    const others = EDU_CHALLENGES.filter(c => c !== challenge);
+    const next = others[Math.floor(Math.random() * others.length)];
+    showEduChallenge(onUnlock, onSkip, next);
+  };
+  el.querySelector("#sc-edu-skip").onclick = () => { el.remove(); onSkip(); };
 }
 
 // ===================================================================
@@ -256,8 +393,8 @@ function handlePomodoroVisibility() {
 }
 
 function evaluatePomodoro(s) {
-  const EARN_MS = 50 * 60 * 1000;
-  const USE_MS = 25 * 60 * 1000;
+  const EARN_MS = 50 * 1000;
+  const USE_MS = 25 * 1000;
 
   const extraOff = s.offStart ? Date.now() - s.offStart : 0;
   const totalOff = (s.offAccumMs || 0) + extraOff;
@@ -340,7 +477,7 @@ function showPomodoroEarning(doneMs, totalMs) {
 function startPomodoroUsage(s) {
   if (document.getElementById("sc-pomo-banner")) return;
 
-  const USE_MS = 25 * 60 * 1000;
+  const USE_MS = 25 * 1000;
   const banner = document.createElement("div");
   banner.id = "sc-pomo-banner";
   banner.className = "sc-top-banner";
@@ -404,7 +541,7 @@ function showPomodoroExhausted() {
       s.offAccumMs = 0;
       chrome.storage.local.set({ pomodoroState: s });
     });
-    showPomodoroEarning(0, 50 * 60 * 1000);
+    showPomodoroEarning(0, 50 * 1000);
   };
 }
 
@@ -430,9 +567,9 @@ function initReduce() {
 }
 
 function runReduceTimer(startUsageMs, cycleStart) {
-  const GRACE_MS = 15 * 60 * 1000;
-  const STEP_MS = 2 * 60 * 1000;
-  const CYCLE_MS = 3 * 60 * 60 * 1000;
+  const GRACE_MS = 15 * 1000;
+  const STEP_MS = 2 * 1000;
+  const CYCLE_MS = 90 * 1000;
 
   let usageMs = startUsageMs;
   let lastTick = Date.now();
@@ -543,13 +680,13 @@ function initMindfulness() {
   let usageMs = 0;
   let lastTick = Date.now();
   let checkCount = 0;
-  const CHECK_MS = 15 * 60 * 1000;
+  const CHECK_MS = 15 * 1000;
 
   setPlant(1, "🌿 15:00");
 
   setInterval(() => {
     const now = Date.now();
-    if (!pageVisible) { lastTick = now; return; }
+    if (!pageVisible || mindfulnessPaused) { lastTick = now; return; }
     usageMs += now - lastTick;
     lastTick = now;
 
@@ -626,15 +763,21 @@ function showMindfulAlt() {
         <h2>Journal Prompt</h2>
         <p class="sc-journal-prompt">"${prompt}"</p>
         <textarea id="sc-journal-entry" placeholder="Write your thoughts here..."></textarea>
+        <p class="sc-small sc-timer-paused">Timer paused while you write</p>
         <button id="sc-alt-done">Done 🌱</button>
       </div>
     `;
+    mindfulnessPaused = true;
   }
 
   const el = makeOverlay(inner);
   document.body.appendChild(el);
   setPlant(2, "Reflecting...");
-  el.querySelector("#sc-alt-done").onclick = () => { el.remove(); setPlant(1, "Mindful 🌿"); };
+  el.querySelector("#sc-alt-done").onclick = () => {
+    mindfulnessPaused = false;
+    el.remove();
+    setPlant(1, "Mindful 🌿");
+  };
 }
 
 // ===================================================================
